@@ -9,14 +9,8 @@ using NUnit.Framework;
 
 namespace NUnit.Specifications
 {
-	public abstract class ContextAttribute : Attribute
-	{
-		public abstract void Initialize(dynamic context);
-	}
-
-	[DebuggerStepThrough]
-	[TestFixture]
-	public abstract class ContextSpecification
+    [TestFixture]
+	public abstract class ContextSpecification : IEnumerable
 	{
 		protected Exception Exception;
 		public static dynamic Context { get; protected set; }
@@ -29,21 +23,20 @@ namespace NUnit.Specifications
 
 		public delegate void It();
 
-		[TestFixtureSetUp]
+		[OneTimeSetUp]
 		public void TestFixtureSetUp()
 		{
 			InitializeContext();
 			InvokeEstablish();
 			InvokeBecause();
-		}
+        }
 
 		void InitializeContext()
 		{
 			Context = new ExpandoObject();
 			Type t = GetType();
 
-			IEnumerable<ContextAttribute> contexts =
-				t.GetCustomAttributes(typeof (ContextAttribute), true).Cast<ContextAttribute>();
+			IEnumerable<ContextAttribute> contexts = t.GetCustomAttributes(typeof (ContextAttribute), true).Cast<ContextAttribute>();
 
 			foreach (ContextAttribute context in contexts)
 			{
@@ -51,10 +44,10 @@ namespace NUnit.Specifications
 			}
 		}
 
-		[TestFixtureTearDown]
+		[OneTimeTearDown]
 		public void TestFixtureTearDown()
 		{
-			InvokeCleanup();
+            InvokeCleanup();
 		}
 
 		void InvokeEstablish()
@@ -109,14 +102,14 @@ namespace NUnit.Specifications
 
 				if (cleanupFieldInfo != null) cleanup = cleanupFieldInfo.GetValue(this) as Delegate;
 				if (cleanup != null) cleanup.DynamicInvoke(null);
-			}
+            }
 			catch (Exception e)
 			{
 				Console.WriteLine(e);
 			}
 		}
 
-		public IEnumerable GetObservations()
+        public IEnumerable<TestCaseData> GetObservations()
 		{
 			Type t = GetType();
 
@@ -136,13 +129,18 @@ namespace NUnit.Specifications
 					.SetCategory(categoryName));
 		}
 
-		[Test, TestCaseSource("GetObservations")]
-		public void Observation(It observation)
-		{
-			if (Exception != null)
-				throw Exception;
+        [Test, TestCaseSource(typeof(ContextSpecification))]
+        public void Observation(It observation)
+        {
+            if (Exception != null)
+                throw Exception;
 
-			observation();
-		}
-	}
+            observation();
+        }
+
+        public IEnumerator GetEnumerator()
+        {
+            return GetObservations().GetEnumerator();
+        }
+    }
 }
